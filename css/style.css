@@ -237,6 +237,19 @@ main {
   letter-spacing: 0.02em;
 }
 
+.has-audio {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.02rem 0.38rem;
+  border: 1px solid var(--line);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  vertical-align: 0.08em;
+}
+
 .card-body h2 {
   margin: 0.12rem 0 0;
   font-family: var(--display);
@@ -303,6 +316,29 @@ main {
 .episode-date .label {
   margin-right: 0.45rem;
   letter-spacing: 0.08em;
+}
+
+.listen {
+  margin: 0 0 0.85rem;
+  padding: 0.7rem 0.85rem 0.8rem;
+  background: rgba(255, 250, 242, 0.72);
+  border: 1px solid var(--line);
+}
+
+.listen-label {
+  margin: 0 0 0.4rem;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+
+/* iPhone Safari では、幅を指定した素の audio がそのまま再生できる。コントロールの見た目は上書きしない。 */
+.listen audio {
+  display: block;
+  width: 100%;
+  max-width: 100%;
 }
 
 .episode-source {
@@ -574,7 +610,8 @@ blockquote cite {
   .header-note,
   .rule,
   .pager,
-  .back {
+  .back,
+  .listen {
     display: none;
   }
 

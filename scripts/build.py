@@ -18,12 +18,14 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA_PATH = ROOT / "data" / "episodes.json"
 IMAGES = ROOT / "images"
 THUMBS = IMAGES / "thumbs"
+AUDIO_DIR = ROOT / "audio"
 
 THUMB_MAX_WIDTH = 640
 THUMB_QUALITY = 76
 FULL_MAX_WIDTH = 1300
 
 IMAGE_RE = re.compile(r"^[a-z0-9][a-z0-9-]*\.jpg$")
+AUDIO_RE = re.compile(r"^[0-9]{3}\.mp3$")
 DATE_RE = re.compile(r"^(\d{4})年(\d{1,2})月(\d{1,2})日$")
 
 FONT_LINKS = """<link rel="preconnect" href="https://fonts.googleapis.com">
@@ -116,6 +118,36 @@ def make_thumb(src: Path, dest: Path) -> tuple[int, int]:
         return image.width, image.height
 
 
+def optional_audio(episode: dict, number: int, where: str) -> str | None:
+    """読み上げがない回は audio を書かない。ある回は audio/NNN.mp3 を指す。"""
+    if "audio" not in episode or episode.get("audio") is None:
+        return None
+    audio = episode.get("audio")
+    if not isinstance(audio, str) or not audio.strip():
+        fail(f"{where} の audio が空です。読み上げがない回は audio を書かないでください。")
+    name = audio.strip()
+    expected = f"{number:03d}.mp3"
+    if name != expected or not AUDIO_RE.fullmatch(name):
+        fail(
+            f"{where} の audio は {expected} にしてください"
+            f"（audio/{expected} に置いたファイル名だけ）: {name}"
+        )
+    audio_path = (AUDIO_DIR / name).resolve()
+    try:
+        audio_path.relative_to(AUDIO_DIR.resolve())
+    except ValueError:
+        fail(f"{where} の音声パスが audio/ の外を指しています。")
+    if not audio_path.is_file():
+        fail(f"{where} の音声が見つかりません: audio/{name}")
+    if audio_path.stat().st_size < 128:
+        fail(f"{where} の音声ファイルが小さすぎます: audio/{name}")
+    with audio_path.open("rb") as handle:
+        header = handle.read(3)
+    if header != b"ID3" and not (header[:1] == b"\xff" and len(header) >= 2 and (header[1] & 0xE0) == 0xE0):
+        fail(f"{where} の音声が MP3 として読めません: audio/{name}")
+    return name
+
+
 def validate(data: dict) -> tuple[dict, list[dict]]:
     site = data.get("site")
     episodes = data.get("episodes")
@@ -170,6 +202,7 @@ def validate(data: dict) -> tuple[dict, list[dict]]:
             )
         source = require_str(episode, "source", where)
         image_alt = require_str(episode, "imageAlt", where)
+        audio_name = optional_audio(episode, number, where)
         daily = require_str(episode, "daily", where)
         blocks = episode.get("blocks")
         if not isinstance(blocks, list) or not blocks:
@@ -203,6 +236,7 @@ def validate(data: dict) -> tuple[dict, list[dict]]:
                 "image": image_name,
                 "image_alt": image_alt,
                 "source": source,
+                "audio": audio_name,
                 "daily": daily,
                 "blocks": clean_blocks,
                 "width": width,
@@ -309,6 +343,22 @@ def title_html(title: str) -> str:
     return re.sub(r"（[^）]*）", lambda match: f'<span class="title-kana">{match.group(0)}</span>', esc(title))
 
 
+def render_listen(episode: dict) -> str:
+    """題名と配信日の直下、本文の上に置く。audio がなければ空。"""
+    audio = episode.get("audio")
+    if not audio:
+        return ""
+    src = esc(f"../audio/{audio}")
+    return "\n".join(
+        [
+            '        <div class="listen">',
+            '          <p class="listen-label" id="listen-label">🔊 読み上げで聴く</p>',
+            f'          <audio controls preload="none" src="{src}" aria-labelledby="listen-label"></audio>',
+            "        </div>",
+        ]
+    )
+
+
 def render_blocks(blocks: list[dict]) -> str:
     parts: list[str] = []
     for block in blocks:
@@ -385,6 +435,9 @@ def render_episode(site: dict, episode: dict) -> str:
         prev_href=f"{previous['number']:03d}.html" if previous else None,
         next_href=f"{following['number']:03d}.html" if following else None,
     )
+    listen = render_listen(episode)
+    if listen:
+        listen = "\n" + listen
     return f"""{head}
 <body>
   <!-- data/episodes.json から scripts/build.py が生成しました。手で編集しないでください。 -->
@@ -394,7 +447,7 @@ def render_episode(site: dict, episode: dict) -> str:
     <article class="episode">
       <div class="wrap">
         <h1 class="episode-title"><span class="episode-number">第{episode["number"]}回</span>{title_html(episode["title"])}</h1>
-        <p class="episode-date"><span class="label">配信日</span><time datetime="{episode["iso"]}">{esc(episode["date"])}</time></p>
+        <p class="episode-date"><span class="label">配信日</span><time datetime="{episode["iso"]}">{esc(episode["date"])}</time></p>{listen}
         <p class="episode-source"><span class="source-label">出典</span><span class="source-text">{esc(episode["source"])}</span></p>
         <figure class="hero-figure">
           <img src="{image_src}" width="{episode["width"]}" height="{episode["height"]}" alt="{esc(episode["image_alt"])}" fetchpriority="high" decoding="async">
@@ -456,6 +509,7 @@ def render_index(site: dict, episodes: list[dict]) -> str:
                 loading = 'loading="lazy" '
                 alt = ""
             daily = ""
+            audio_mark = ' <span class="has-audio">音声あり</span>' if episode.get("audio") else ""
             if latest:
                 daily = (
                     '\n          <p class="card-daily"><span class="label">暮らしのひとこと</span>'
@@ -470,7 +524,7 @@ def render_index(site: dict, episodes: list[dict]) -> str:
                         f'              <img src="{src}" width="{width}" height="{height}" alt="{alt}" {loading}decoding="async">',
                         "            </div>",
                         '            <div class="card-body">',
-                        f'              <p class="card-kicker">第{episode["number"]}回 <time datetime="{episode["iso"]}">{esc(episode["date"])}</time></p>',
+                        f'              <p class="card-kicker">第{episode["number"]}回 <time datetime="{episode["iso"]}">{esc(episode["date"])}</time>{audio_mark}</p>',
                         f"              <h2>{esc(episode['title'])}</h2>{daily}",
                         "            </div>",
                         "          </a>",
@@ -532,6 +586,14 @@ def verify(site: dict, episodes: list[dict], index_html: str, pages: dict[int, s
             fail(f"一覧にリンクがありません: {href}")
         positions.append(position)
         assert_contains(index_html, episode["title"], "一覧の題名")
+        card_start = index_html.rfind("<li", 0, position)
+        card_end = index_html.find("</li>", position)
+        card = index_html[card_start:card_end]
+        if episode.get("audio"):
+            if "音声あり" not in card:
+                fail(f"一覧の第{episode['number']}回に「音声あり」がありません。")
+        elif "音声あり" in card:
+            fail(f"一覧の第{episode['number']}回は音声がないので、「音声あり」は不要です。")
     if positions != sorted(positions):
         fail("一覧が新しい順になっていません。")
     for episode in episodes:
@@ -566,6 +628,20 @@ def verify(site: dict, episodes: list[dict], index_html: str, pages: dict[int, s
             fail(f"第{episode['number']}回は最初の回なので、前の法話は不要です。")
         if episode["next"] is None and 'class="next"' in page:
             fail(f"第{episode['number']}回は最新なので、次の法話は不要です。")
+        if episode.get("audio"):
+            src = f"../audio/{episode['audio']}"
+            player = f'<audio controls preload="none" src="{esc(src)}"'
+            if player not in page or "読み上げで聴く" not in page:
+                fail(f"第{episode['number']}回に読み上げプレーヤーがありません。")
+            if page.count("<audio") != 1:
+                fail(f"第{episode['number']}回のプレーヤーは一つにしてください。")
+            date_at = page.find("配信日")
+            audio_at = page.find(player)
+            talk_at = page.find('class="talk"')
+            if not (0 <= date_at < audio_at < talk_at):
+                fail(f"第{episode['number']}回の読み上げは、配信日の下、本文の上に置いてください。")
+        elif "<audio" in page or "読み上げで聴く" in page:
+            fail(f"第{episode['number']}回に audio がないのに読み上げが出ています。")
 
 
 def main() -> None:
@@ -589,7 +665,8 @@ def main() -> None:
     print("  index.html")
     print("  404.html")
     for episode in sorted(episodes, key=lambda item: item["number"], reverse=True):
-        print(f"  {episode['page']}  第{episode['number']}回 {episode['title']}")
+        audio_note = f"  音声 audio/{episode['audio']}" if episode.get("audio") else ""
+        print(f"  {episode['page']}  第{episode['number']}回 {episode['title']}{audio_note}")
     if episodes:
         order = "、".join(f"第{episode['number']}回" for episode in reversed(episodes))
         print(f"一覧の並び（新しい順）: {order}")

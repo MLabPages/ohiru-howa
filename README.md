@@ -32,7 +32,13 @@ python3 scripts/optimize_image.py 元の画像.jpg images/05-example.jpg
 
 幅がすでに 1200px 前後なら、その JPEG を `images/` に置くだけで構いません。1300px を超えていると、次の生成でエラーになります。
 
-### 2. `data/episodes.json` の末尾に 1 件足す
+### 2. 読み上げ音声があれば `audio/` に置く
+
+任意です。読み上げがある回だけ、`audio/NNN.mp3` を置きます。`NNN` は回番号の 3 桁です。第5回なら `audio/005.mp3` です。
+
+ファイルはそのまま置いてください。変換や再エンコードはしません。読み上げがない回は、この手順を飛ばします。
+
+### 3. `data/episodes.json` の末尾に 1 件足す
 
 `episodes` 配列の**最後**に、次の形のオブジェクトを追加します。配列の順番は表示に使いません。`number` が大きい回が新しい回で、一覧の先頭に出ます。
 
@@ -43,6 +49,7 @@ python3 scripts/optimize_image.py 元の画像.jpg images/05-example.jpg
   "date": "2026年11月13日",
   "image": "05-example.jpg",
   "imageAlt": "挿絵が何を描いているかの説明",
+  "audio": "005.mp3",
   "source": "その回全体の出典",
   "blocks": [
     {
@@ -70,6 +77,7 @@ python3 scripts/optimize_image.py 元の画像.jpg images/05-example.jpg
 | `date` | `2026年11月13日` の形。見出しの「配信日」にそのまま出る。 |
 | `image` | `images/` に置いたファイル名だけ。フォルダ名は書かない。 |
 | `imageAlt` | 挿絵の説明。画像の代替テキストになる。 |
+| `audio` | 任意。`audio/005.mp3` を置いたとき、ファイル名だけを書く（`005.mp3`）。空のときは項目ごと省く。ページでは題名と配信日の下に再生プレーヤーが出る。 |
 | `source` | その回の出典。題名の下の「出典」欄に、全文がそのまま出る。 |
 | `blocks` | 本文。上からこの順に表示する。 |
 | `blocks[].type` | 地の文は `paragraph`、引用は `quote`。 |
@@ -79,7 +87,7 @@ python3 scripts/optimize_image.py 元の画像.jpg images/05-example.jpg
 
 引用がない回は、`paragraph` だけを並べます。引用がある回は、読ませたい位置に `quote` を挟みます。
 
-### 3. ページを生成する
+### 4. ページを生成する
 
 ```bash
 python3 scripts/build.py
@@ -94,34 +102,35 @@ python3 scripts/build.py
 
 `index.html` と `episodes/*.html` は手で編集しないでください。直したい文章は `data/episodes.json` を編集して、もう一度 `python3 scripts/build.py` を実行します。
 
-### 4. ブラウザで確認する
+### 5. ブラウザで確認する
 
 `python3 -m http.server 8000` で開き、少なくとも次を見ます。
 
 - 一覧の先頭が、いま足した回である
 - その回のページに、挿絵・題名・配信日・「出典」・本文・暮らしのひとことがある
+- `audio` を書いた回は、題名と配信日の下に「🔊 読み上げで聴く」と再生ボタンがあり、音声が再生できる。一覧には「音声あり」と出る
 - 引用を書いた場合、引用のすぐ横に、その `source` が「出典」として出ている
-- フッターの注記が 4 つ残っている
+- フッターの注記が 5 つある（読み上げが音声合成である旨を含む）
 - 一つ前の回・一つ後の回へのリンクが、あるべき側だけにある
 - 携帯電話の幅でも、横にスクロールしない
 
-### 5. `main` に載せる
+### 6. `main` に載せる
 
 生成したファイルも一緒にコミットします。Pages はリポジトリに入っている HTML をそのまま出します。
 
 ```bash
-git add data/episodes.json images/05-example.jpg images/thumbs/05-example.jpg index.html episodes
+git add data/episodes.json images/05-example.jpg images/thumbs/05-example.jpg audio/005.mp3 index.html episodes
 git commit -m "第5回を追加"
 git push origin main
 ```
 
-`git diff` に `404.html` や前後の回の HTML も出ていれば、それも加えてください。force push は不要です。
+読み上げを置かなかった回は、`audio/005.mp3` を add しなくて構いません。`git diff` に `404.html` や前後の回の HTML も出ていれば、それも加えてください。force push は不要です。
 
 push すると GitHub Actions が、HTML が `data/episodes.json` から作り直したものと一致するかを確認します。JSON だけ直して生成を忘れると、そこで失敗します。
 
 ## フッターの注記
 
-全ページの末尾に出る 4 項目は、`site.notes` です。法華経の訳、日蓮聖人の御文の出典の扱い、個人の学びであることの断り、挿絵が画像生成であることの断りが書いてあります。文言を変えるときも、ここを編集してから `python3 scripts/build.py` を実行します。
+全ページの末尾に出る 5 項目は、`site.notes` です。法華経の訳、日蓮聖人の御文の出典の扱い、個人の学びであることの断り、挿絵が画像生成であることの断り、読み上げ音声が音声合成（AI）であることの断りが書いてあります。文言を変えるときも、ここを編集してから `python3 scripts/build.py` を実行します。
 
 ## ファイル
 
@@ -133,6 +142,7 @@ push すると GitHub Actions が、HTML が `data/episodes.json` から作り�
 | `index.html` | 一覧。生成物。 |
 | `episodes/001.html` など | 各回のページ。生成物。 |
 | `images/` | 各回の挿絵（およそ 1200px）。 |
+| `audio/` | 各回の読み上げ（`001.mp3` のように回番号）。任意。 |
 | `images/thumbs/` | 一覧用の縮小画像。生成物。 |
 | `css/style.css` | 見た目。 |
 | `404.html` | 見つからないページ。生成物。 |
