@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """data/episodes.json から静的な HTML と一覧用サムネイルを生成する。
 
-公開そのものにこのスクリプトは不要です。生成済みの HTML を GitHub Pages が配信します。
+公開そのものにこのスクリプトは不要です。生成済みの HTML を Cloudflare Pages が配信します。
 法話を追加・修正したときだけ実行してください。手順は README.md にあります。
 """
 
@@ -299,7 +299,7 @@ def render_head(
     prev_href: str | None = None,
     next_href: str | None = None,
 ) -> str:
-    canonical = f"{site['url']}/{canonical_path}" if canonical_path else f"{site['url']}/"
+    canonical = f"{site['url']}/{canonical_path.removesuffix('.html')}"
     lines = [
         "<!DOCTYPE html>",
         '<html lang="ja">',
@@ -551,16 +551,17 @@ def render_index(site: dict, episodes: list[dict]) -> str:
 
 
 def render_404(site: dict) -> str:
-    head = render_head(site, "", f"ページが見つかりません｜{site['title']}", site["title"], "404.html", "website")
+    base = site["url"] + "/"
+    head = render_head(site, base, f"ページが見つかりません｜{site['title']}", site["title"], "404.html", "website")
     return f"""{head}
 <body>
   <a class="skip" href="#main">本文へスキップ</a>
-{render_header(site["title"], "", home=False)}
+{render_header(site["title"], base, home=False)}
   <main id="main">
     <div class="wrap prose">
       <h1>ページが見つかりません</h1>
       <p>アドレスをご確認いただくか、法話の一覧からお探しください。</p>
-      <p class="back"><a href="index.html">法話の一覧へ</a></p>
+      <p class="back"><a href="{esc(base)}">法話の一覧へ</a></p>
     </div>
   </main>
 {render_notes(site["notes"])}

@@ -1,6 +1,6 @@
 # お昼のひとこと法話集
 
-短い法話を毎日ひとつ残し、読み返したり、人に渡したりするための静的サイトです。GitHub Pages が `main` ブランチのルートを、そのまま配信します。公開のときにビルドは走りません。
+短い法話を毎日ひとつ残し、読み返したり、人に渡したりするための静的サイトです。Cloudflare Pages が `main` ブランチのルートにある生成済みの HTML を、ビルドなしで配信します。
 
 法話の文章・出典・挿絵の説明は、すべて `data/episodes.json` に書いたものがページにそのまま出ます。スクリプトが文を足したり、引用を作ったりすることはありません。
 
@@ -148,8 +148,8 @@ push すると GitHub Actions が、HTML が `data/episodes.json` から作り�
 | `404.html` | 見つからないページ。生成物。 |
 | `.nojekyll` | GitHub Pages に Jekyll を通させないための空ファイル。 |
 
-## GitHub Pages
+## Cloudflare Pages
 
-リポジトリの Settings → Pages → Build and deployment で、Source を **Deploy from a branch**、Branch を **`main`**、Folder を **`/ (root)`** にします。
+GitHub リポジトリを Pages に接続します。本番ブランチを `main`、フレームワークを「なし」、ビルドコマンドを空欄、ビルド出力ディレクトリを `.` にします。ルートディレクトリは既定のリポジトリルートを使います。プロジェクトの「カスタムドメイン」に `ohiru-howa.mlabcraft.com` を追加します。
 
-公開先は <https://mlabpages.github.io/ohiru-howa/> です。別の URL にするときは、`data/episodes.json` の `site.url` も同じアドレスに直し、`python3 scripts/build.py` を実行してから push します。`site.url` は共有したときの URL と、各ページの canonical に使います。
+公開先は <https://ohiru-howa.mlabcraft.com/> です。別の URL にするときは、`data/episodes.json` の `site.url` も同じアドレスに直し、`python3 scripts/build.py` を実行してから push します。`site.url` は共有したときの URL と、各ページの canonical に使います。

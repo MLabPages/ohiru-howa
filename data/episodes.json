@@ -2,7 +2,7 @@
   "comment": "このファイルが法話の原本です。編集したあとは python3 scripts/build.py を実行してください。手順は README.md にあります。",
   "site": {
     "title": "お昼のひとこと法話集",
-    "url": "https://mlabpages.github.io/ohiru-howa",
+    "url": "https://ohiru-howa.mlabcraft.com",
     "notes": [
       "法華経の引用・品名は『妙法蓮華経』（鳩摩羅什訳）による。",
       "日蓮聖人の御文は各御書（御消息）の題名を出典として明記。",
